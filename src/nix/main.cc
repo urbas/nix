@@ -179,8 +179,13 @@ struct NixArgs : virtual MultiCommand, virtual MixCommonArgs
         for (auto & implem : *Implementations::registered) {
             auto storeConfig = implem.getConfig();
             auto storeName = storeConfig->name();
-            stores[storeName]["doc"] = storeConfig->doc();
-            stores[storeName]["settings"] = storeConfig->toJSON();
+            auto & j = stores[storeName];
+            j["doc"] = storeConfig->doc();
+            j["settings"] = storeConfig->toJSON();
+            if (std::optional xp = storeConfig->experimentalFeature())
+                j["experimental-feature"] = *xp;
+            else
+                j["experimental-feature"] = nullptr;
         }
         res["stores"] = std::move(stores);
 

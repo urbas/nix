@@ -98,6 +98,8 @@ typedef std::map<StorePath, std::optional<ContentAddress>> StorePathCAMap;
 
 struct StoreConfig : public Config
 {
+    typedef std::map<std::string, std::string> Params;
+
     using Config::Config;
 
     StoreConfig() = delete;
@@ -106,11 +108,26 @@ struct StoreConfig : public Config
 
     virtual ~StoreConfig() { }
 
+    /**
+     * The name of this type of store.
+     */
     virtual const std::string name() = 0;
 
+    /**
+     * Documentation for this type of store.
+     */
     virtual std::string doc()
     {
         return "";
+    }
+
+    /**
+     * An experimental feature this type store is gated, if it is to be
+     * experimental.
+     */
+    virtual std::optional<ExperimentalFeature> experimentalFeature() const
+    {
+        return std::nullopt;
     }
 
     const PathSetting storeDir_{this, false, settings.nixStore,
@@ -152,10 +169,6 @@ struct StoreConfig : public Config
 
 class Store : public std::enable_shared_from_this<Store>, public virtual StoreConfig
 {
-public:
-
-    typedef std::map<std::string, std::string> Params;
-
 protected:
 
     struct PathInfoCacheValue {

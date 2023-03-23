@@ -1445,6 +1445,7 @@ ref<Store> openStore(const std::string & uri_,
             if (implem.uriSchemes.count(parsedUri.scheme)) {
                 auto store = implem.create(parsedUri.scheme, baseURI, params);
                 if (store) {
+                    experimentalFeatureSettings.require(store->experimentalFeature());
                     store->init();
                     store->warnUnknownSettings();
                     return ref<Store>(store);

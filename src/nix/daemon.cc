@@ -425,12 +425,13 @@ static void processStdioConnection(ref<Store> store)
  * Entry point shared between the new CLI `nix daemon` and old CLI
  * `nix-daemon`.
  */
-static void runDaemon(bool stdio)
+static void runDaemon(bool stdio, bool processOps)
 {
     if (stdio) {
         auto store = openUncachedStore();
 
-        if (auto remoteStore = store.dynamic_pointer_cast<RemoteStore>())
+        std::shared_ptr<RemoteStore> remoteStore;
+        if (!processOps && (remoteStore = store.dynamic_pointer_cast<RemoteStore>()))
             forwardStdioConnection(*remoteStore);
         else
             processStdioConnection(store);
@@ -442,6 +443,7 @@ static int main_nix_daemon(int argc, char * * argv)
 {
     {
         auto stdio = false;
+        auto processOps = false;
 
         parseCmdLine(argc, argv, [&](Strings::iterator & arg, const Strings::iterator & end) {
             if (*arg == "--daemon")
@@ -452,11 +454,13 @@ static int main_nix_daemon(int argc, char * * argv)
                 printVersion("nix-daemon");
             else if (*arg == "--stdio")
                 stdio = true;
+            else if (*arg == "--process-ops")
+                processOps = true;
             else return false;
             return true;
         });
 
-        runDaemon(stdio);
+        runDaemon(stdio, processOps);
 
         return 0;
     }
@@ -482,7 +486,7 @@ struct CmdDaemon : StoreCommand
 
     void run(ref<Store> store) override
     {
-        runDaemon(false);
+        runDaemon(false, false);
     }
 };
 

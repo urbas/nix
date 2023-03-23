@@ -129,7 +129,7 @@ let
 
   storeDocs =
     let
-      showStore = name: { settings, doc }:
+      showStore = name: { settings, doc, experimental-feature }:
         ''
           ## ${name}
 

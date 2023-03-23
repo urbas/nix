@@ -5,7 +5,9 @@
 #include "store-api.hh"
 #include "store-cast.hh"
 #include "gc-store.hh"
+#include "local-fs-store.hh"
 #include "log-store.hh"
+#include "indirect-root-store.hh"
 #include "path-with-outputs.hh"
 #include "finally.hh"
 #include "archive.hh"
@@ -660,12 +662,27 @@ static void performOp(TunnelLogger * logger, ref<Store> store,
         break;
     }
 
+    case wopAddPermRoot: {
+        if (!trusted)
+            throw Error(
+                "you are not privileged to create perm roots\n\n"
+                "hint: you can just do this client-side without special privilages, and probably want to do that instead.");
+        auto storePath = store->parseStorePath(readString(from));
+        Path gcRoot = absPath(readString(from));
+        logger->startWork();
+        auto & localFSStore = require<LocalFSStore>(*store);
+        localFSStore.addPermRoot(storePath, gcRoot);
+        logger->stopWork();
+        to << gcRoot;
+        break;
+    }
+
     case wopAddIndirectRoot: {
         Path path = absPath(readString(from));
 
         logger->startWork();
-        auto & gcStore = require<GcStore>(*store);
-        gcStore.addIndirectRoot(path);
+        auto & indirectRootStore = require<IndirectRootStore>(*store);
+        indirectRootStore.addIndirectRoot(path);
         logger->stopWork();
 
         to << 1;

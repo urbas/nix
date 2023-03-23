@@ -318,48 +318,26 @@ void RemoteStore::setOptions(Connection & conn)
 }
 
 
-/* A wrapper around Pool<RemoteStore::Connection>::Handle that marks
-   the connection as bad (causing it to be closed) if a non-daemon
-   exception is thrown before the handle is closed. Such an exception
-   causes a deviation from the expected protocol and therefore a
-   desynchronization between the client and daemon. */
-struct ConnectionHandle
+RemoteStore::ConnectionHandle::~ConnectionHandle()
 {
-    Pool<RemoteStore::Connection>::Handle handle;
-    bool daemonException = false;
-
-    ConnectionHandle(Pool<RemoteStore::Connection>::Handle && handle)
-        : handle(std::move(handle))
-    { }
-
-    ConnectionHandle(ConnectionHandle && h)
-        : handle(std::move(h.handle))
-    { }
-
-    ~ConnectionHandle()
-    {
-        if (!daemonException && std::uncaught_exceptions()) {
-            handle.markBad();
-            debug("closing daemon connection because of an exception");
-        }
+    if (!daemonException && std::uncaught_exceptions()) {
+        handle.markBad();
+        debug("closing daemon connection because of an exception");
     }
+}
 
-    RemoteStore::Connection * operator -> () { return &*handle; }
 
-    void processStderr(Sink * sink = 0, Source * source = 0, bool flush = true)
-    {
-        auto ex = handle->processStderr(sink, source, flush);
-        if (ex) {
-            daemonException = true;
-            std::rethrow_exception(ex);
-        }
+void RemoteStore::ConnectionHandle::processStderr(Sink * sink, Source * source, bool flush)
+{
+    auto ex = handle->processStderr(sink, source, flush);
+    if (ex) {
+        daemonException = true;
+        std::rethrow_exception(ex);
     }
-
-    void withFramedSink(std::function<void(Sink & sink)> fun);
-};
+}
 
 
-ConnectionHandle RemoteStore::getConnection()
+RemoteStore::ConnectionHandle RemoteStore::getConnection()
 {
     return ConnectionHandle(connections->get());
 }
@@ -807,10 +785,10 @@ void RemoteStore::queryRealisationUncached(const DrvOutput & id,
     } catch (...) { return callback.rethrow(); }
 }
 
-static void writeDerivedPaths(RemoteStore & store, ConnectionHandle & conn, const std::vector<DerivedPath> & reqs)
+static void writeDerivedPaths(RemoteStore & store, RemoteStore::Connection & conn, const std::vector<DerivedPath> & reqs)
 {
-    if (GET_PROTOCOL_MINOR(conn->daemonVersion) >= 30) {
-        worker_proto::write(store, conn->to, reqs);
+    if (GET_PROTOCOL_MINOR(conn.daemonVersion) >= 30) {
+        worker_proto::write(store, conn.to, reqs);
     } else {
         Strings ss;
         for (auto & p : reqs) {
@@ -822,12 +800,12 @@ static void writeDerivedPaths(RemoteStore & store, ConnectionHandle & conn, cons
                 [&](const StorePath & drvPath) {
                     throw Error("trying to request '%s', but daemon protocol %d.%d is too old (< 1.29) to request a derivation file",
                         store.printStorePath(drvPath),
-                        GET_PROTOCOL_MAJOR(conn->daemonVersion),
-                        GET_PROTOCOL_MINOR(conn->daemonVersion));
+                        GET_PROTOCOL_MAJOR(conn.daemonVersion),
+                        GET_PROTOCOL_MINOR(conn.daemonVersion));
                 },
             }, sOrDrvPath);
         }
-        conn->to << ss;
+        conn.to << ss;
     }
 }
 
@@ -853,7 +831,7 @@ void RemoteStore::buildPaths(const std::vector<DerivedPath> & drvPaths, BuildMod
     auto conn(getConnection());
     conn->to << wopBuildPaths;
     assert(GET_PROTOCOL_MINOR(conn->daemonVersion) >= 13);
-    writeDerivedPaths(*this, conn, drvPaths);
+    writeDerivedPaths(*this, *conn, drvPaths);
     if (GET_PROTOCOL_MINOR(conn->daemonVersion) >= 15)
         conn->to << buildMode;
     else
@@ -877,7 +855,7 @@ std::vector<BuildResult> RemoteStore::buildPathsWithResults(
 
     if (GET_PROTOCOL_MINOR(conn->daemonVersion) >= 34) {
         conn->to << wopBuildPathsWithResults;
-        writeDerivedPaths(*this, conn, paths);
+        writeDerivedPaths(*this, *conn, paths);
         conn->to << buildMode;
         conn.processStderr();
         return worker_proto::read(*this, conn->from, Phantom<std::vector<BuildResult>> {});
@@ -989,15 +967,6 @@ void RemoteStore::addTempRoot(const StorePath & path)
 }
 
 
-void RemoteStore::addIndirectRoot(const Path & path)
-{
-    auto conn(getConnection());
-    conn->to << wopAddIndirectRoot << path;
-    conn.processStderr();
-    readInt(conn->from);
-}
-
-
 Roots RemoteStore::findRoots(bool censor)
 {
     auto conn(getConnection());
@@ -1077,7 +1046,7 @@ void RemoteStore::queryMissing(const std::vector<DerivedPath> & targets,
             // to prevent a deadlock.
             goto fallback;
         conn->to << wopQueryMissing;
-        writeDerivedPaths(*this, conn, targets);
+        writeDerivedPaths(*this, *conn, targets);
         conn.processStderr();
         willBuild = worker_proto::read(*this, conn->from, Phantom<StorePathSet> {});
         willSubstitute = worker_proto::read(*this, conn->from, Phantom<StorePathSet> {});
@@ -1242,7 +1211,7 @@ std::exception_ptr RemoteStore::Connection::processStderr(Sink * sink, Source * 
     return nullptr;
 }
 
-void ConnectionHandle::withFramedSink(std::function<void(Sink & sink)> fun)
+void RemoteStore::ConnectionHandle::withFramedSink(std::function<void(Sink & sink)> fun)
 {
     (*this)->to.flush();
 

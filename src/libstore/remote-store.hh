@@ -7,6 +7,7 @@
 #include "store-api.hh"
 #include "gc-store.hh"
 #include "log-store.hh"
+#include "pool.hh"
 
 
 namespace nix {
@@ -16,8 +17,6 @@ class Pipe;
 class Pid;
 struct FdSink;
 struct FdSource;
-template<typename T> class Pool;
-struct ConnectionHandle;
 
 struct RemoteStoreConfig : virtual StoreConfig
 {
@@ -126,8 +125,6 @@ public:
 
     void addTempRoot(const StorePath & path) override;
 
-    void addIndirectRoot(const Path & path) override;
-
     Roots findRoots(bool censor) override;
 
     void collectGarbage(const GCOptions & options, GCResults & results) override;
@@ -184,6 +181,8 @@ protected:
 
     void setOptions() override;
 
+    struct ConnectionHandle;
+
     ConnectionHandle getConnection();
 
     friend struct ConnectionHandle;
@@ -199,6 +198,36 @@ private:
     void copyDrvsFromEvalStore(
         const std::vector<DerivedPath> & paths,
         std::shared_ptr<Store> evalStore);
+};
+
+/**
+ * A wrapper around Pool<RemoteStore::Connection>::Handle that marks
+ * the connection as bad (causing it to be closed) if a non-daemon
+ * exception is thrown before the handle is closed. Such an exception
+ * causes a deviation from the expected protocol and therefore a
+ * desynchronization between the client and daemon.
+ */
+struct RemoteStore::ConnectionHandle
+{
+    Pool<RemoteStore::Connection>::Handle handle;
+    bool daemonException = false;
+
+    ConnectionHandle(Pool<RemoteStore::Connection>::Handle && handle)
+        : handle(std::move(handle))
+    { }
+
+    ConnectionHandle(ConnectionHandle && h)
+        : handle(std::move(h.handle))
+    { }
+
+    ~ConnectionHandle();
+
+    RemoteStore::Connection & operator * () { return *handle; }
+    RemoteStore::Connection * operator -> () { return &*handle; }
+
+    void processStderr(Sink * sink = 0, Source * source = 0, bool flush = true);
+
+    void withFramedSink(std::function<void(Sink & sink)> fun);
 };
 
 
