@@ -116,7 +116,7 @@ public:
 
     static std::set<std::string> uriSchemes()
     {
-        return {"mounted-ssh"};
+        return {"mounted-ssh-ng"};
     }
 
     std::string getUri() override
