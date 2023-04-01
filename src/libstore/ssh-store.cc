@@ -104,6 +104,7 @@ public:
     MountedSSHStore(const std::string & scheme, const std::string & host, const Params & params)
         : StoreConfig(params)
         , RemoteStoreConfig(params)
+        , CommonSSHStoreConfig(params)
         , SSHStoreConfig(params)
         , Store(params)
         , RemoteStore(params)
