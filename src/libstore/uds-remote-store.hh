@@ -24,7 +24,10 @@ struct UDSRemoteStoreConfig : virtual LocalFSStoreConfig, virtual RemoteStoreCon
     }
 };
 
-class UDSRemoteStore : public virtual UDSRemoteStoreConfig, public virtual LocalFSStore, public virtual RemoteStore
+class UDSRemoteStore : public virtual UDSRemoteStoreConfig
+    , public virtual IndirectRootStore
+    , public virtual LocalPermRootStore
+    , public virtual RemoteStore
 {
 public:
 
@@ -41,6 +44,8 @@ public:
 
     void narFromPath(const StorePath & path, Sink & sink) override
     { LocalFSStore::narFromPath(path, sink); }
+
+    void addIndirectRoot(const Path & path) override;
 
 private:
 

@@ -46,7 +46,10 @@ struct LocalStoreConfig : virtual LocalFSStoreConfig
     std::string doc() override;
 };
 
-class LocalStore : public virtual LocalStoreConfig, public virtual LocalFSStore, public virtual GcStore
+class LocalStore : public virtual LocalStoreConfig
+    , public virtual IndirectRootStore
+    , public virtual LocalPermRootStore
+    , public virtual GcStore
 {
 private:
 
