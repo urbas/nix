@@ -22,7 +22,7 @@ struct ExperimentalFeatureDetails
  * feature, we either have no issue at all if few features are not added
  * at the end of the list, or a proper merge conflict if they are.
  */
-constexpr size_t numXpFeatures = 1 + static_cast<size_t>(Xp::VerifiedFetches);
+constexpr size_t numXpFeatures = 1 + static_cast<size_t>(Xp::MountedSSHStore);
 
 constexpr std::array<ExperimentalFeatureDetails, numXpFeatures> xpFeatureDetails = {{
     {
@@ -267,6 +267,13 @@ constexpr std::array<ExperimentalFeatureDetails, numXpFeatures> xpFeatureDetails
         .name = "verified-fetches",
         .description = R"(
             Enables verification of git commit signatures through the [`fetchGit`](@docroot@/language/builtins.md#builtins-fetchGit) built-in.
+        )",
+    },
+    {
+        .tag = Xp::MountedSSHStore,
+        .name = "mounted-ssh-store",
+        .description = R"(
+            Allow the use of the [`mounted SSH store`](@docroot@/command-ref/new-cli/nix3-help-stores.html#experimental-ssh-store-with-filesytem-mounted).
         )",
     },
 }};
