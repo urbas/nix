@@ -133,6 +133,12 @@ let
         ''
           ## ${name}
 
+        ''
+        + (if experimental-feature != null then ''
+          **Warning**: To use this store, you must enable it with `--extra-experimental-features ${experimental-feature}`.
+        '' else "")
+        + ''
+
           ${doc}
 
           **Settings**:
