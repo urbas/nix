@@ -442,16 +442,23 @@ static void processStdioConnection(ref<Store> store, TrustedFlag trustClient)
  *
  * @param forceTrustClientOpt See `daemonLoop()` and the parameter with
  * the same name over there for details.
+ *
+ * @param procesOps Whether to force processing ops even if the next
+ * store also is a remote store and could process it directly.
  */
-static void runDaemon(bool stdio, std::optional<TrustedFlag> forceTrustClientOpt)
+static void runDaemon(bool stdio, std::optional<TrustedFlag> forceTrustClientOpt, bool processOps)
 {
     if (stdio) {
         auto store = openUncachedStore();
 
+        std::shared_ptr<RemoteStore> remoteStore;
+
         // If --force-untrusted is passed, we cannot forward the connection and
         // must process it ourselves (before delegating to the next store) to
         // force untrusting the client.
-        if (auto remoteStore = store.dynamic_pointer_cast<RemoteStore>(); remoteStore && (!forceTrustClientOpt || *forceTrustClientOpt != NotTrusted))
+        processOps |= !forceTrustClientOpt || *forceTrustClientOpt != NotTrusted; 
+
+        if (!processOps && (remoteStore = store.dynamic_pointer_cast<RemoteStore>()))
             forwardStdioConnection(*remoteStore);
         else
             // `Trusted` is passed in the auto (no override case) because we
@@ -467,6 +474,7 @@ static int main_nix_daemon(int argc, char * * argv)
     {
         auto stdio = false;
         std::optional<TrustedFlag> isTrustedOpt = std::nullopt;
+        auto processOps = false;
 
         parseCmdLine(argc, argv, [&](Strings::iterator & arg, const Strings::iterator & end) {
             if (*arg == "--daemon")
@@ -486,11 +494,13 @@ static int main_nix_daemon(int argc, char * * argv)
             } else if (*arg == "--default-trust") {
                 experimentalFeatureSettings.require(Xp::DaemonTrustOverride);
                 isTrustedOpt = std::nullopt;
-            } else return false;
+            } else if (*arg == "--process-ops")
+                processOps = true;
+            else return false;
             return true;
         });
 
-        runDaemon(stdio, isTrustedOpt);
+        runDaemon(stdio, isTrustedOpt, processOps);
 
         return 0;
     }
@@ -516,7 +526,7 @@ struct CmdDaemon : StoreCommand
 
     void run(ref<Store> store) override
     {
-        runDaemon(false, std::nullopt);
+        runDaemon(false, std::nullopt, false);
     }
 };
 
