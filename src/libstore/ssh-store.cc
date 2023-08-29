@@ -191,10 +191,10 @@ public:
      * remote side see the direct root the client made?) seems bigger.
      *
      * In addition, the remote-side will have a process associated with
-     * the authenticating user handlering the connection (even if there
+     * the authenticating user handling the connection (even if there
      * is a system-wide daemon or similar). This process can safely make
-     * the direct and indrect roots without there being such a risk of
-     * privilage escalation / symlinks in directories owned by the
+     * the direct and indirect roots without there being such a risk of
+     * privilege escalation / symlinks in directories owned by the
      * originating requester that they cannot delete.
      */
     Path addPermRoot(const StorePath & path, const Path & gcRoot) override
